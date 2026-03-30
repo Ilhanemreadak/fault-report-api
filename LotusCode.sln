@@ -1,0 +1,49 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36623.8
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusCode.Api", "src\LotusCode.Api\LotusCode.Api.csproj", "{3AC63EEE-6B65-4760-A5BE-9073ACE711E6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusCode.Domain", "src\LotusCode.Domain\LotusCode.Domain.csproj", "{673BAAFD-E560-4042-8B06-B4BC97918F7C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusCode.Application", "src\LotusCode.Application\LotusCode.Application.csproj", "{3DA181CF-B96B-4541-B4CE-84F9B827A79B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusCode.Infrastructure", "src\LotusCode.Infrastructure\LotusCode.Infrastructure.csproj", "{7BB52051-BCA1-4FA8-A5C1-5C6ECB82984C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LotusCode.Tests", "tests\LotusCode.Tests\LotusCode.Tests.csproj", "{DA4186B7-B4E7-445B-B548-918C5D640C95}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3AC63EEE-6B65-4760-A5BE-9073ACE711E6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AC63EEE-6B65-4760-A5BE-9073ACE711E6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AC63EEE-6B65-4760-A5BE-9073ACE711E6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AC63EEE-6B65-4760-A5BE-9073ACE711E6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{673BAAFD-E560-4042-8B06-B4BC97918F7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{673BAAFD-E560-4042-8B06-B4BC97918F7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{673BAAFD-E560-4042-8B06-B4BC97918F7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{673BAAFD-E560-4042-8B06-B4BC97918F7C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DA181CF-B96B-4541-B4CE-84F9B827A79B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DA181CF-B96B-4541-B4CE-84F9B827A79B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DA181CF-B96B-4541-B4CE-84F9B827A79B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DA181CF-B96B-4541-B4CE-84F9B827A79B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7BB52051-BCA1-4FA8-A5C1-5C6ECB82984C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7BB52051-BCA1-4FA8-A5C1-5C6ECB82984C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7BB52051-BCA1-4FA8-A5C1-5C6ECB82984C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7BB52051-BCA1-4FA8-A5C1-5C6ECB82984C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DA4186B7-B4E7-445B-B548-918C5D640C95}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA4186B7-B4E7-445B-B548-918C5D640C95}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA4186B7-B4E7-445B-B548-918C5D640C95}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA4186B7-B4E7-445B-B548-918C5D640C95}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {48277B7B-D0FD-4F8A-AD39-CCD5326108BA}
+	EndGlobalSection
+EndGlobal
