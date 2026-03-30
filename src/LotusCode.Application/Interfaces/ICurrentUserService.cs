@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace LotusCode.Application.Interfaces
+﻿namespace LotusCode.Application.Interfaces
 {
     /// <summary>
     /// Provides information about the currently authenticated user.
