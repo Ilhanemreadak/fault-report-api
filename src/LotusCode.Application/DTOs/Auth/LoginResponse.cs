@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace LotusCode.Application.DTOs.Auth
 {
+    /// <summary>
+    /// Represents login response containing JWT token, expiration time
+    /// and authenticated user information.
+    /// </summary>
     public sealed class LoginResponse
     {
         public string Token { get; init; } = string.Empty;

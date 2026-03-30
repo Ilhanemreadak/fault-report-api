@@ -1,5 +1,9 @@
 ﻿namespace LotusCode.Application.DTOs.Auth
 {
+    /// <summary>
+    /// Represents authenticated user information returned after successful login.
+    /// Contains basic user identity and role information.
+    /// </summary>
     public sealed class AuthenticatedUserDto
     {
         public Guid Id { get; init; }

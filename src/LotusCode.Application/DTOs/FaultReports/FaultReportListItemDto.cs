@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace LotusCode.Application.DTOs.FaultReports
+﻿namespace LotusCode.Application.DTOs.FaultReports
 {
+    /// <summary>
+    /// Represents lightweight fault report data returned in list endpoints.
+    /// Contains essential fields for listing without full detail payload.
+    /// </summary>
     public sealed class FaultReportListItemDto
     {
         public Guid Id { get; init; }

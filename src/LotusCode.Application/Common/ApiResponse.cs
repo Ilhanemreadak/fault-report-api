@@ -1,5 +1,10 @@
 ﻿namespace LotusCode.Application.Common
 {
+    /// <summary>
+    /// Standardized API response wrapper used across all endpoints.
+    /// Ensures consistent response format including success state, data payload,
+    /// message and error collection.
+    /// </summary>
     public sealed class ApiResponse<T>
     {
         public bool Success { get; init; }

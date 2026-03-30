@@ -1,5 +1,10 @@
 ﻿namespace LotusCode.Application.Common
 {
+    /// <summary>
+    /// Represents a paginated result set returned from list endpoints.
+    /// Includes items along with pagination metadata such as page number,
+    /// page size, total count and total pages.
+    /// </summary>
     public sealed class PagedResult<T>
     {
         public IReadOnlyList<T> Items { get; init; } = Array.Empty<T>();

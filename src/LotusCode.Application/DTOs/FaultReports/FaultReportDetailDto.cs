@@ -1,5 +1,9 @@
 ﻿namespace LotusCode.Application.DTOs.FaultReports
 {
+    /// <summary>
+    /// Represents detailed fault report data returned in detail endpoint.
+    /// Includes full information such as description and creator details.
+    /// </summary>
     public sealed class FaultReportDetailDto
     {
         public Guid Id { get; init; }
