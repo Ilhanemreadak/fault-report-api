@@ -1,6 +1,7 @@
 ﻿using LotusCode.Application.Interfaces;
 using LotusCode.Infrastructure.Auth;
 using LotusCode.Infrastructure.Persistence;
+using LotusCode.Infrastructure.Persistence.Seed;
 using LotusCode.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,7 @@ namespace LotusCode.Infrastructure.DependencyInjection
             services.AddScoped<IPasswordHasher, PasswordHasher>();
             services.AddScoped<IJwtTokenService, JwtTokenService>();
             services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<DbSeeder>();
 
             return services;
         }
