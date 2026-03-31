@@ -40,6 +40,7 @@ namespace LotusCode.Infrastructure.DependencyInjection
             services.AddScoped<IJwtTokenService, JwtTokenService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<DbSeeder>();
+            services.AddScoped<IFaultReportService, FaultReportService>();
 
             return services;
         }

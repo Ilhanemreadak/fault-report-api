@@ -34,7 +34,7 @@ namespace LotusCode.Application.Validators.FaultReports
             RuleFor(x => x.Priority)
                 .NotEmpty()
                 .WithMessage("Priority is required.")
-                .Must(priority => AllowedPriorities.Contains(priority))
+                .Must(priority => AllowedPriorities.Contains(priority, StringComparer.OrdinalIgnoreCase)) // Case sensitive kaldırılması
                 .WithMessage("Priority must be one of the following values: Low, Medium, High.");
         }
     }
