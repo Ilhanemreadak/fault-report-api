@@ -1,4 +1,5 @@
 ﻿using LotusCode.Application.DTOs.Auth;
+using LotusCode.Application.Exceptions;
 using LotusCode.Application.Interfaces;
 using LotusCode.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
