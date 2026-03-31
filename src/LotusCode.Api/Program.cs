@@ -1,12 +1,13 @@
-using System.Text;
 using FluentValidation.AspNetCore;
+using LotusCode.Api.Middleware;
 using LotusCode.Application.DependencyInjection;
 using LotusCode.Infrastructure.Auth;
 using LotusCode.Infrastructure.DependencyInjection;
+using LotusCode.Infrastructure.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using LotusCode.Infrastructure.Persistence.Seed;
 using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -89,6 +90,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseHttpsRedirection();
 

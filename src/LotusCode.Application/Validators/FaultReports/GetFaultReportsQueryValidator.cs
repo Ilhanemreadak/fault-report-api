@@ -45,7 +45,7 @@ namespace LotusCode.Application.Validators.FaultReports
                 .WithMessage("SortDirection must be 'asc' or 'desc'.");
 
             RuleFor(x => x.Priority)
-                .Must(p => p == null || AllowedPriorities.Contains(p))
+                .Must(p => AllowedPriorities.Contains(p, StringComparer.OrdinalIgnoreCase))
                 .WithMessage("Invalid priority value.");
 
             RuleFor(x => x.Status)
