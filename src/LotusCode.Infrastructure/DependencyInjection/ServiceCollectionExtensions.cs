@@ -1,4 +1,5 @@
 ﻿using LotusCode.Application.Interfaces;
+using LotusCode.Domain.Policies;
 using LotusCode.Infrastructure.Auth;
 using LotusCode.Infrastructure.Persistence;
 using LotusCode.Infrastructure.Persistence.Seed;
@@ -41,6 +42,7 @@ namespace LotusCode.Infrastructure.DependencyInjection
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<DbSeeder>();
             services.AddScoped<IFaultReportService, FaultReportService>();
+            services.AddScoped<IFaultReportStatusTransitionPolicy, FaultReportStatusTransitionPolicy>();
 
             return services;
         }
