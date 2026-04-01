@@ -1,4 +1,4 @@
-# LotusCode Assignment - Fault Report Management API
+# Fault Report Management API
 
 Bu proje, elektrik dağıtım şirketi senaryosu için geliştirdiğim bir **.NET 8 Web API** çalışmasıdır. Temel amaç; arıza kayıtlarını güvenli, kurallı ve sürdürülebilir bir şekilde yönetmek.
 
