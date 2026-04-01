@@ -2290,6 +2290,333 @@ namespace LotusCode.Tests.Unit.Services
                 });
         }
 
+        // Feature: comprehensive-unit-test-suite, Property 14: Status immutability through UpdateAsync
+        // **Validates: Requirements 4.7**
+        [Property(MaxTest = 100)]
+        public Property UpdateAsync_StatusRemainsUnchanged_ForAnyUpdateRequest()
+        {
+            return Prop.ForAll(
+                GenerateUpdateScenario(),
+                async scenario =>
+                {
+                    // Arrange
+                    var userId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: userId, role: "User");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the user
+                    var user = TestDataBuilder.CreateUser(
+                        id: userId,
+                        fullName: "Test User",
+                        email: "test@example.com",
+                        role: Domain.Enums.UserRole.User);
+
+                    // Create a fault report with an initial status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Original Title",
+                        description: "Original Description",
+                        location: scenario.OriginalLocation,
+                        priority: Domain.Enums.PriorityLevel.Low,
+                        status: scenario.InitialStatus,
+                        createdByUserId: userId,
+                        createdAtUtc: DateTime.UtcNow.AddDays(-2),
+                        updatedAtUtc: DateTime.UtcNow.AddDays(-1));
+
+                    dbContext.Users.Add(user);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        mockStatusTransitionPolicy.Object);
+
+                    // Create an update request with new values
+                    var updateRequest = new Application.DTOs.FaultReports.UpdateFaultReportRequest
+                    {
+                        Title = scenario.NewTitle,
+                        Description = scenario.NewDescription,
+                        Location = scenario.NewLocation,
+                        Priority = scenario.NewPriority
+                    };
+
+                    // Act
+                    await sut.UpdateAsync(faultReport.Id, updateRequest, CancellationToken.None);
+
+                    // Assert
+                    var updatedReport = await dbContext.FaultReports.FindAsync(faultReport.Id);
+                    updatedReport.Should().NotBeNull("Fault report should exist in database");
+                    updatedReport!.Status.Should().Be(scenario.InitialStatus,
+                        "For any fault report update via UpdateAsync, the Status field should remain unchanged regardless of the update request content");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        /// <summary>
+        /// Generates arbitrary update scenarios for property-based testing of status immutability.
+        /// Each scenario includes an initial status and various update field values.
+        /// </summary>
+        private static Arbitrary<UpdateScenario> GenerateUpdateScenario()
+        {
+            var initialStatusGen = Gen.Elements(
+                Domain.Enums.FaultReportStatus.New,
+                Domain.Enums.FaultReportStatus.Reviewing,
+                Domain.Enums.FaultReportStatus.Assigned,
+                Domain.Enums.FaultReportStatus.InProgress,
+                Domain.Enums.FaultReportStatus.Completed,
+                Domain.Enums.FaultReportStatus.Cancelled,
+                Domain.Enums.FaultReportStatus.FalseAlarm
+            );
+
+            var titleGen = Gen.Elements(
+                "Updated Critical System Failure",
+                "Updated Network Outage",
+                "Updated Hardware Malfunction",
+                "Updated Software Bug",
+                "Updated Security Vulnerability",
+                "Updated Performance Issue",
+                "Updated Data Corruption"
+            );
+
+            var descriptionGen = Gen.Elements(
+                "Updated: The system has encountered a critical error.",
+                "Updated: Multiple users are reporting connectivity issues.",
+                "Updated: Hardware component showing signs of failure.",
+                "Updated: Application crashes when performing operations.",
+                "Updated: Potential security breach detected.",
+                "Updated: System response time has degraded significantly.",
+                "Updated: Database integrity check revealed corrupted records."
+            );
+
+            var originalLocationGen = Gen.Elements(
+                "Original Building A",
+                "Original Building B",
+                "Original Building C",
+                "Original Data Center",
+                "Original Server Room",
+                "Original Office Wing",
+                "Original Conference Room"
+            );
+
+            var newLocationGen = Gen.Elements(
+                "Updated Building X",
+                "Updated Building Y",
+                "Updated Building Z",
+                "Updated Data Center",
+                "Updated Server Room",
+                "Updated Office Wing",
+                "Updated Conference Room"
+            );
+
+            var priorityGen = Gen.Elements("Low", "Medium", "High");
+
+            return Arb.From(
+                from initialStatus in initialStatusGen
+                from newTitle in titleGen
+                from newDescription in descriptionGen
+                from originalLocation in originalLocationGen
+                from newLocation in newLocationGen
+                from newPriority in priorityGen
+                select new UpdateScenario
+                {
+                    InitialStatus = initialStatus,
+                    NewTitle = newTitle,
+                    NewDescription = newDescription,
+                    OriginalLocation = originalLocation,
+                    NewLocation = newLocation,
+                    NewPriority = newPriority
+                });
+        }
+        // Feature: comprehensive-unit-test-suite, Property 6: Timestamp management
+        // **Validates: Requirements 1.7, 4.8, 5.7**
+        [Property(MaxTest = 100)]
+        public Property TimestampManagement_SetsTimestampsCorrectly_ForCreateAndUpdateOperations()
+        {
+            return Prop.ForAll(
+                GenerateTimestampScenario(),
+                async scenario =>
+                {
+                    // Arrange
+                    var userId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: userId, role: "User");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the user
+                    var user = TestDataBuilder.CreateUser(
+                        id: userId,
+                        fullName: "Test User",
+                        email: "test@example.com",
+                        role: Domain.Enums.UserRole.User);
+
+                    dbContext.Users.Add(user);
+                    await dbContext.SaveChangesAsync();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        mockStatusTransitionPolicy.Object);
+
+                    if (scenario.OperationType == "Create")
+                    {
+                        // Test CreateAsync timestamp management
+                        var createRequest = TestDataBuilder.CreateValidRequest(
+                            title: scenario.Title,
+                            description: scenario.Description,
+                            location: scenario.Location,
+                            priority: scenario.Priority);
+
+                        var beforeCreate = DateTime.UtcNow;
+
+                        // Act
+                        var reportId = await sut.CreateAsync(createRequest, CancellationToken.None);
+
+                        var afterCreate = DateTime.UtcNow;
+
+                        // Assert
+                        var createdReport = await dbContext.FaultReports.FindAsync(reportId);
+                        createdReport.Should().NotBeNull("Fault report should be saved to database");
+                        createdReport!.CreatedAtUtc.Should().BeCloseTo(beforeCreate, TimeSpan.FromSeconds(2),
+                            "For any create operation, CreatedAtUtc should be set to the current UTC time (Requirement 1.7)");
+                        createdReport.CreatedAtUtc.Should().BeBefore(afterCreate.AddSeconds(1));
+                        createdReport.UpdatedAtUtc.Should().BeCloseTo(beforeCreate, TimeSpan.FromSeconds(2),
+                            "For any create operation, UpdatedAtUtc should be set to the current UTC time (Requirement 1.7)");
+                        createdReport.UpdatedAtUtc.Should().BeBefore(afterCreate.AddSeconds(1));
+                    }
+                    else if (scenario.OperationType == "Update")
+                    {
+                        // Test UpdateAsync timestamp management
+                        var originalCreatedAt = DateTime.UtcNow.AddDays(-5);
+                        var originalUpdatedAt = DateTime.UtcNow.AddDays(-3);
+
+                        var faultReport = TestDataBuilder.CreateFaultReport(
+                            id: Guid.NewGuid(),
+                            title: "Original Title",
+                            description: "Original Description",
+                            location: "Original Location",
+                            priority: Domain.Enums.PriorityLevel.Low,
+                            status: Domain.Enums.FaultReportStatus.New,
+                            createdByUserId: userId,
+                            createdAtUtc: originalCreatedAt,
+                            updatedAtUtc: originalUpdatedAt);
+
+                        dbContext.FaultReports.Add(faultReport);
+                        await dbContext.SaveChangesAsync();
+
+                        var updateRequest = new Application.DTOs.FaultReports.UpdateFaultReportRequest
+                        {
+                            Title = scenario.Title,
+                            Description = scenario.Description,
+                            Location = scenario.Location,
+                            Priority = scenario.Priority
+                        };
+
+                        var beforeUpdate = DateTime.UtcNow;
+
+                        // Act
+                        await sut.UpdateAsync(faultReport.Id, updateRequest, CancellationToken.None);
+
+                        var afterUpdate = DateTime.UtcNow;
+
+                        // Assert
+                        var updatedReport = await dbContext.FaultReports.FindAsync(faultReport.Id);
+                        updatedReport.Should().NotBeNull("Fault report should exist in database");
+                        updatedReport!.UpdatedAtUtc.Should().BeCloseTo(beforeUpdate, TimeSpan.FromSeconds(2),
+                            "For any update operation, UpdatedAtUtc should be set to the current UTC time (Requirement 4.8)");
+                        updatedReport.UpdatedAtUtc.Should().BeBefore(afterUpdate.AddSeconds(1));
+                        updatedReport.CreatedAtUtc.Should().BeCloseTo(originalCreatedAt, TimeSpan.FromSeconds(1),
+                            "For any update operation, CreatedAtUtc should remain unchanged");
+                    }
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        /// <summary>
+        /// Generates arbitrary timestamp management scenarios for property-based testing.
+        /// Each scenario includes an operation type (Create or Update) and fault report data.
+        /// </summary>
+        private static Arbitrary<TimestampScenario> GenerateTimestampScenario()
+        {
+            var operationTypeGen = Gen.Elements("Create", "Update");
+
+            var titleGen = Gen.Elements(
+                "Critical System Failure",
+                "Network Outage",
+                "Hardware Malfunction",
+                "Software Bug",
+                "Security Vulnerability",
+                "Performance Issue",
+                "Data Corruption"
+            );
+
+            var descriptionGen = Gen.Elements(
+                "The system has encountered a critical error.",
+                "Multiple users are reporting connectivity issues.",
+                "Hardware component showing signs of failure.",
+                "Application crashes when performing operations.",
+                "Potential security breach detected.",
+                "System response time has degraded significantly.",
+                "Database integrity check revealed corrupted records."
+            );
+
+            var locationGen = Gen.Elements(
+                "Building A - Floor 1",
+                "Building B - Floor 2",
+                "Building C - Basement",
+                "Data Center - Room 101",
+                "Server Room Alpha",
+                "Office Wing East",
+                "Conference Room A"
+            );
+
+            var priorityGen = Gen.Elements("Low", "Medium", "High");
+
+            return Arb.From(
+                from operationType in operationTypeGen
+                from title in titleGen
+                from description in descriptionGen
+                from location in locationGen
+                from priority in priorityGen
+                select new TimestampScenario
+                {
+                    OperationType = operationType,
+                    Title = title,
+                    Description = description,
+                    Location = location,
+                    Priority = priority
+                });
+        }
+
+        /// <summary>
+        /// Represents a timestamp management test scenario with operation type and fault report data.
+        /// </summary>
+        private class TimestampScenario
+        {
+            public string OperationType { get; set; } = string.Empty;
+            public string Title { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public string Location { get; set; } = string.Empty;
+            public string Priority { get; set; } = string.Empty;
+        }
+
+
+        /// <summary>
+        /// Represents an update test scenario with initial status and new field values.
+        /// </summary>
+        private class UpdateScenario
+        {
+            public Domain.Enums.FaultReportStatus InitialStatus { get; set; }
+            public string NewTitle { get; set; } = string.Empty;
+            public string NewDescription { get; set; } = string.Empty;
+            public string OriginalLocation { get; set; } = string.Empty;
+            public string NewLocation { get; set; } = string.Empty;
+            public string NewPriority { get; set; } = string.Empty;
+        }
+
         // Feature: comprehensive-unit-test-suite, Property 9: DTO population with user information
         // **Validates: Requirements 2.5**
         [Property(MaxTest = 100)]
@@ -3230,5 +3557,730 @@ namespace LotusCode.Tests.Unit.Services
                 _ => throw new ArgumentException($"Unknown priority: {priority}")
             };
         }
+
+        #region ChangeStatusAsync Tests
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenAdminPerformsValidTransition_ShouldUpdateStatusAndTimestamp()
+        {
+            // Arrange
+            var adminUserId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            // Create the admin user
+            var adminUser = TestDataBuilder.CreateUser(
+                id: adminUserId,
+                fullName: "Admin User",
+                email: "admin@example.com",
+                role: Domain.Enums.UserRole.Admin);
+
+            // Create a fault report with status New
+            var faultReport = TestDataBuilder.CreateFaultReport(
+                id: Guid.NewGuid(),
+                title: "Test Fault Report",
+                description: "Test Description",
+                location: "Building A",
+                priority: Domain.Enums.PriorityLevel.High,
+                status: Domain.Enums.FaultReportStatus.New,
+                createdByUserId: adminUserId,
+                updatedAtUtc: DateTime.UtcNow.AddHours(-1)); // Set to 1 hour ago
+
+            dbContext.Users.Add(adminUser);
+            dbContext.FaultReports.Add(faultReport);
+            await dbContext.SaveChangesAsync();
+
+            // Configure the mock policy to allow the transition
+            var mockPolicy = MockHelpers.CreateMockStatusTransitionPolicy(canTransition: true);
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockPolicy.Object);
+
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "Reviewing");
+            var beforeChange = DateTime.UtcNow;
+
+            // Act
+            await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+            var afterChange = DateTime.UtcNow;
+
+            // Assert
+            var updatedReport = await dbContext.FaultReports.FindAsync(faultReport.Id);
+            updatedReport.Should().NotBeNull("Fault report should exist in database");
+            updatedReport!.Status.Should().Be(Domain.Enums.FaultReportStatus.Reviewing, 
+                "Status should be updated to Reviewing");
+            updatedReport.UpdatedAtUtc.Should().BeCloseTo(beforeChange, TimeSpan.FromSeconds(2), 
+                "UpdatedAtUtc should be set to current UTC time");
+            updatedReport.UpdatedAtUtc.Should().BeBefore(afterChange.AddSeconds(1));
+
+            // Verify that CanTransition was invoked with correct parameters
+            mockPolicy.Verify(
+                x => x.CanTransition(
+                    Domain.Enums.UserRole.Admin,
+                    Domain.Enums.FaultReportStatus.New,
+                    Domain.Enums.FaultReportStatus.Reviewing),
+                Times.Once,
+                "IFaultReportStatusTransitionPolicy.CanTransition should be invoked with correct parameters");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenInvalidTransition_ShouldThrowStatusTransitionException()
+        {
+            // Arrange
+            var adminUserId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            // Create the admin user
+            var adminUser = TestDataBuilder.CreateUser(
+                id: adminUserId,
+                fullName: "Admin User",
+                email: "admin@example.com",
+                role: Domain.Enums.UserRole.Admin);
+
+            // Create a fault report with status New
+            var faultReport = TestDataBuilder.CreateFaultReport(
+                id: Guid.NewGuid(),
+                title: "Test Fault Report",
+                description: "Test Description",
+                location: "Building A",
+                priority: Domain.Enums.PriorityLevel.High,
+                status: Domain.Enums.FaultReportStatus.New,
+                createdByUserId: adminUserId);
+
+            dbContext.Users.Add(adminUser);
+            dbContext.FaultReports.Add(faultReport);
+            await dbContext.SaveChangesAsync();
+
+            // Configure the mock policy to reject the transition
+            var mockPolicy = MockHelpers.CreateMockStatusTransitionPolicy(
+                canTransition: false,
+                validationMessage: "Status transition from 'New' to 'Assigned' is not allowed.");
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockPolicy.Object);
+
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "Assigned");
+
+            // Act
+            Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<StatusTransitionException>()
+                .WithMessage("*not allowed*");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenNonAdminUser_ShouldThrowForbiddenException()
+        {
+            // Arrange
+            var userId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: userId, role: "User");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            // Create the user
+            var user = TestDataBuilder.CreateUser(
+                id: userId,
+                fullName: "Regular User",
+                email: "user@example.com",
+                role: Domain.Enums.UserRole.User);
+
+            // Create a fault report owned by the user
+            var faultReport = TestDataBuilder.CreateFaultReport(
+                id: Guid.NewGuid(),
+                title: "Test Fault Report",
+                description: "Test Description",
+                location: "Building A",
+                priority: Domain.Enums.PriorityLevel.High,
+                status: Domain.Enums.FaultReportStatus.New,
+                createdByUserId: userId);
+
+            dbContext.Users.Add(user);
+            dbContext.FaultReports.Add(faultReport);
+            await dbContext.SaveChangesAsync();
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockStatusTransitionPolicy.Object);
+
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "Reviewing");
+
+            // Act
+            Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<ForbiddenException>()
+                .WithMessage("*admin*");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenInvalidStatusString_ShouldThrowStatusTransitionException()
+        {
+            // Arrange
+            var adminUserId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            // Create the admin user
+            var adminUser = TestDataBuilder.CreateUser(
+                id: adminUserId,
+                fullName: "Admin User",
+                email: "admin@example.com",
+                role: Domain.Enums.UserRole.Admin);
+
+            // Create a fault report
+            var faultReport = TestDataBuilder.CreateFaultReport(
+                id: Guid.NewGuid(),
+                title: "Test Fault Report",
+                description: "Test Description",
+                location: "Building A",
+                priority: Domain.Enums.PriorityLevel.High,
+                status: Domain.Enums.FaultReportStatus.New,
+                createdByUserId: adminUserId);
+
+            dbContext.Users.Add(adminUser);
+            dbContext.FaultReports.Add(faultReport);
+            await dbContext.SaveChangesAsync();
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockStatusTransitionPolicy.Object);
+
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "InvalidStatus");
+
+            // Act
+            Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<StatusTransitionException>()
+                .WithMessage("*Invalid target status*");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenNonExistentId_ShouldThrowNotFoundException()
+        {
+            // Arrange
+            var adminUserId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockStatusTransitionPolicy.Object);
+
+            var nonExistentId = Guid.NewGuid();
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "Reviewing");
+
+            // Act
+            Func<Task> act = async () => await sut.ChangeStatusAsync(nonExistentId, request, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<NotFoundException>()
+                .WithMessage("*not found*");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        [Fact]
+        public async Task ChangeStatusAsync_WhenTransitionFromTerminalState_ShouldThrowStatusTransitionException()
+        {
+            // Arrange
+            var adminUserId = Guid.NewGuid();
+            var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+            var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+            // Create the admin user
+            var adminUser = TestDataBuilder.CreateUser(
+                id: adminUserId,
+                fullName: "Admin User",
+                email: "admin@example.com",
+                role: Domain.Enums.UserRole.Admin);
+
+            // Create a fault report with terminal status (Completed)
+            var faultReport = TestDataBuilder.CreateFaultReport(
+                id: Guid.NewGuid(),
+                title: "Test Fault Report",
+                description: "Test Description",
+                location: "Building A",
+                priority: Domain.Enums.PriorityLevel.High,
+                status: Domain.Enums.FaultReportStatus.Completed,
+                createdByUserId: adminUserId);
+
+            dbContext.Users.Add(adminUser);
+            dbContext.FaultReports.Add(faultReport);
+            await dbContext.SaveChangesAsync();
+
+            // Configure the mock policy to reject the transition from terminal state
+            var mockPolicy = MockHelpers.CreateMockStatusTransitionPolicy(
+                canTransition: false,
+                validationMessage: "Status transition from 'Completed' to 'New' is not allowed.");
+
+            var sut = new FaultReportService(
+                dbContext,
+                mockCurrentUser.Object,
+                mockPolicy.Object);
+
+            var request = TestDataBuilder.CreateStatusChangeRequest(status: "New");
+
+            // Act
+            Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+            // Assert
+            await act.Should().ThrowAsync<StatusTransitionException>()
+                .WithMessage("*not allowed*");
+
+            // Cleanup
+            dbContext.Dispose();
+        }
+
+        // Feature: comprehensive-unit-test-suite, Property 15: Valid status transitions for admins
+        // **Validates: Requirements 5.1**
+        [Property(MaxTest = 100)]
+        public Property ChangeStatusAsync_AdminValidTransitions_ShouldSucceed()
+        {
+            return Prop.ForAll(
+                GenerateValidStatusTransition(),
+                async transition =>
+                {
+                    // Arrange
+                    var adminUserId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the admin user
+                    var adminUser = TestDataBuilder.CreateUser(
+                        id: adminUserId,
+                        fullName: "Admin User",
+                        email: "admin@example.com",
+                        role: Domain.Enums.UserRole.Admin);
+
+                    // Create a fault report with the source status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Test Fault Report",
+                        description: "Test Description",
+                        location: "Building A",
+                        priority: Domain.Enums.PriorityLevel.High,
+                        status: transition.FromStatus,
+                        createdByUserId: adminUserId);
+
+                    dbContext.Users.Add(adminUser);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    // Use the real policy to test actual valid transitions
+                    var realPolicy = new FaultReportStatusTransitionPolicy();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        realPolicy);
+
+                    var request = TestDataBuilder.CreateStatusChangeRequest(status: transition.ToStatus.ToString());
+
+                    // Act
+                    await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+                    // Assert
+                    var updatedReport = await dbContext.FaultReports.FindAsync(faultReport.Id);
+                    updatedReport.Should().NotBeNull("Fault report should exist in database");
+                    updatedReport!.Status.Should().Be(transition.ToStatus,
+                        "For any admin user requesting a status transition that is allowed by the policy, ChangeStatusAsync should complete successfully and update the status (Requirement 5.1)");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        // Feature: comprehensive-unit-test-suite, Property 16: Invalid status transition rejection
+        // **Validates: Requirements 5.2**
+        [Property(MaxTest = 100)]
+        public Property ChangeStatusAsync_InvalidTransitions_ShouldThrowException()
+        {
+            return Prop.ForAll(
+                GenerateInvalidStatusTransition(),
+                async transition =>
+                {
+                    // Arrange
+                    var adminUserId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the admin user
+                    var adminUser = TestDataBuilder.CreateUser(
+                        id: adminUserId,
+                        fullName: "Admin User",
+                        email: "admin@example.com",
+                        role: Domain.Enums.UserRole.Admin);
+
+                    // Create a fault report with the source status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Test Fault Report",
+                        description: "Test Description",
+                        location: "Building A",
+                        priority: Domain.Enums.PriorityLevel.High,
+                        status: transition.FromStatus,
+                        createdByUserId: adminUserId);
+
+                    dbContext.Users.Add(adminUser);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    // Use the real policy to test actual invalid transitions
+                    var realPolicy = new FaultReportStatusTransitionPolicy();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        realPolicy);
+
+                    var request = TestDataBuilder.CreateStatusChangeRequest(status: transition.ToStatus.ToString());
+
+                    // Act
+                    Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+                    // Assert
+                    await act.Should().ThrowAsync<StatusTransitionException>(
+                        "For any status transition that is not allowed by the policy, ChangeStatusAsync should throw StatusTransitionException (Requirement 5.2)");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        // Feature: comprehensive-unit-test-suite, Property 17: Status change admin-only access
+        // **Validates: Requirements 5.3**
+        [Property(MaxTest = 100)]
+        public Property ChangeStatusAsync_NonAdminUser_ShouldAlwaysThrowForbiddenException()
+        {
+            return Prop.ForAll(
+                GenerateAnyStatusTransition(),
+                async transition =>
+                {
+                    // Arrange
+                    var userId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: userId, role: "User");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the user
+                    var user = TestDataBuilder.CreateUser(
+                        id: userId,
+                        fullName: "Regular User",
+                        email: "user@example.com",
+                        role: Domain.Enums.UserRole.User);
+
+                    // Create a fault report with the source status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Test Fault Report",
+                        description: "Test Description",
+                        location: "Building A",
+                        priority: Domain.Enums.PriorityLevel.High,
+                        status: transition.FromStatus,
+                        createdByUserId: userId);
+
+                    dbContext.Users.Add(user);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    // Use the real policy
+                    var realPolicy = new FaultReportStatusTransitionPolicy();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        realPolicy);
+
+                    var request = TestDataBuilder.CreateStatusChangeRequest(status: transition.ToStatus.ToString());
+
+                    // Act
+                    Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+                    // Assert
+                    await act.Should().ThrowAsync<ForbiddenException>(
+                        "For any non-admin user, ChangeStatusAsync should throw ForbiddenException regardless of the requested transition (Requirement 5.3)");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        // Feature: comprehensive-unit-test-suite, Property 18: Terminal state immutability
+        // **Validates: Requirements 5.6**
+        [Property(MaxTest = 100)]
+        public Property ChangeStatusAsync_FromTerminalState_ShouldAlwaysThrowException()
+        {
+            return Prop.ForAll(
+                GenerateTerminalStateTransition(),
+                async transition =>
+                {
+                    // Arrange
+                    var adminUserId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the admin user
+                    var adminUser = TestDataBuilder.CreateUser(
+                        id: adminUserId,
+                        fullName: "Admin User",
+                        email: "admin@example.com",
+                        role: Domain.Enums.UserRole.Admin);
+
+                    // Create a fault report with a terminal status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Test Fault Report",
+                        description: "Test Description",
+                        location: "Building A",
+                        priority: Domain.Enums.PriorityLevel.High,
+                        status: transition.FromStatus,
+                        createdByUserId: adminUserId);
+
+                    dbContext.Users.Add(adminUser);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    // Use the real policy
+                    var realPolicy = new FaultReportStatusTransitionPolicy();
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        realPolicy);
+
+                    var request = TestDataBuilder.CreateStatusChangeRequest(status: transition.ToStatus.ToString());
+
+                    // Act
+                    Func<Task> act = async () => await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+                    // Assert
+                    await act.Should().ThrowAsync<StatusTransitionException>(
+                        "For any fault report in a terminal state (Completed, Cancelled, FalseAlarm), attempting to transition to any other status should throw StatusTransitionException (Requirement 5.6)");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        // Feature: comprehensive-unit-test-suite, Property 19: Status transition policy invocation
+        // **Validates: Requirements 5.8**
+        [Property(MaxTest = 100)]
+        public Property ChangeStatusAsync_ShouldInvokeCanTransitionWithCorrectParameters()
+        {
+            return Prop.ForAll(
+                GenerateAnyStatusTransition(),
+                async transition =>
+                {
+                    // Arrange
+                    var adminUserId = Guid.NewGuid();
+                    var mockCurrentUser = MockHelpers.CreateMockCurrentUserService(userId: adminUserId, role: "Admin");
+                    var dbContext = MockDbContextFactory.CreateInMemoryDbContext();
+
+                    // Create the admin user
+                    var adminUser = TestDataBuilder.CreateUser(
+                        id: adminUserId,
+                        fullName: "Admin User",
+                        email: "admin@example.com",
+                        role: Domain.Enums.UserRole.Admin);
+
+                    // Create a fault report with the source status
+                    var faultReport = TestDataBuilder.CreateFaultReport(
+                        id: Guid.NewGuid(),
+                        title: "Test Fault Report",
+                        description: "Test Description",
+                        location: "Building A",
+                        priority: Domain.Enums.PriorityLevel.High,
+                        status: transition.FromStatus,
+                        createdByUserId: adminUserId);
+
+                    dbContext.Users.Add(adminUser);
+                    dbContext.FaultReports.Add(faultReport);
+                    await dbContext.SaveChangesAsync();
+
+                    // Use a mock policy to verify invocation
+                    var mockPolicy = MockHelpers.CreateMockStatusTransitionPolicy(canTransition: true);
+
+                    var sut = new FaultReportService(
+                        dbContext,
+                        mockCurrentUser.Object,
+                        mockPolicy.Object);
+
+                    var request = TestDataBuilder.CreateStatusChangeRequest(status: transition.ToStatus.ToString());
+
+                    // Act
+                    await sut.ChangeStatusAsync(faultReport.Id, request, CancellationToken.None);
+
+                    // Assert
+                    mockPolicy.Verify(
+                        x => x.CanTransition(
+                            Domain.Enums.UserRole.Admin,
+                            transition.FromStatus,
+                            transition.ToStatus),
+                        Times.Once,
+                        "For any ChangeStatusAsync call, the IFaultReportStatusTransitionPolicy.CanTransition method should be invoked with the correct UserRole, current status, and target status (Requirement 5.8)");
+
+                    // Cleanup
+                    dbContext.Dispose();
+                });
+        }
+
+        /// <summary>
+        /// Generates arbitrary valid status transitions for property-based testing.
+        /// Valid transitions are based on the FaultReportStatusTransitionPolicy rules.
+        /// </summary>
+        private static Arbitrary<StatusTransition> GenerateValidStatusTransition()
+        {
+            var validTransitions = new List<StatusTransition>
+            {
+                // From New
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.Reviewing },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.Cancelled },
+                
+                // From Reviewing
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.Assigned },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.FalseAlarm },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.Cancelled },
+                
+                // From Assigned
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.InProgress },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.Cancelled },
+                
+                // From InProgress
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.Completed },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.Cancelled }
+            };
+
+            return Arb.From(Gen.Elements(validTransitions.ToArray()));
+        }
+
+        /// <summary>
+        /// Generates arbitrary invalid status transitions for property-based testing.
+        /// Invalid transitions are those not allowed by the FaultReportStatusTransitionPolicy.
+        /// </summary>
+        private static Arbitrary<StatusTransition> GenerateInvalidStatusTransition()
+        {
+            var invalidTransitions = new List<StatusTransition>
+            {
+                // Invalid from New
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.Assigned },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.InProgress },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.Completed },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.New, ToStatus = Domain.Enums.FaultReportStatus.FalseAlarm },
+                
+                // Invalid from Reviewing
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.New },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.InProgress },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Reviewing, ToStatus = Domain.Enums.FaultReportStatus.Completed },
+                
+                // Invalid from Assigned
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.New },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.Reviewing },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.Completed },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Assigned, ToStatus = Domain.Enums.FaultReportStatus.FalseAlarm },
+                
+                // Invalid from InProgress
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.New },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.Reviewing },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.Assigned },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.InProgress, ToStatus = Domain.Enums.FaultReportStatus.FalseAlarm },
+                
+                // All transitions from terminal states
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Completed, ToStatus = Domain.Enums.FaultReportStatus.New },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.Cancelled, ToStatus = Domain.Enums.FaultReportStatus.New },
+                new StatusTransition { FromStatus = Domain.Enums.FaultReportStatus.FalseAlarm, ToStatus = Domain.Enums.FaultReportStatus.New }
+            };
+
+            return Arb.From(Gen.Elements(invalidTransitions.ToArray()));
+        }
+
+        /// <summary>
+        /// Generates arbitrary status transitions (both valid and invalid) for property-based testing.
+        /// </summary>
+        private static Arbitrary<StatusTransition> GenerateAnyStatusTransition()
+        {
+            var allStatuses = new[]
+            {
+                Domain.Enums.FaultReportStatus.New,
+                Domain.Enums.FaultReportStatus.Reviewing,
+                Domain.Enums.FaultReportStatus.Assigned,
+                Domain.Enums.FaultReportStatus.InProgress,
+                Domain.Enums.FaultReportStatus.Completed,
+                Domain.Enums.FaultReportStatus.Cancelled,
+                Domain.Enums.FaultReportStatus.FalseAlarm
+            };
+
+            var fromStatusGen = Gen.Elements(allStatuses);
+            var toStatusGen = Gen.Elements(allStatuses);
+
+            return Arb.From(
+                from fromStatus in fromStatusGen
+                from toStatus in toStatusGen
+                select new StatusTransition { FromStatus = fromStatus, ToStatus = toStatus });
+        }
+
+        /// <summary>
+        /// Generates arbitrary transitions from terminal states for property-based testing.
+        /// Terminal states are: Completed, Cancelled, FalseAlarm
+        /// </summary>
+        private static Arbitrary<StatusTransition> GenerateTerminalStateTransition()
+        {
+            var terminalStatuses = new[]
+            {
+                Domain.Enums.FaultReportStatus.Completed,
+                Domain.Enums.FaultReportStatus.Cancelled,
+                Domain.Enums.FaultReportStatus.FalseAlarm
+            };
+
+            var allStatuses = new[]
+            {
+                Domain.Enums.FaultReportStatus.New,
+                Domain.Enums.FaultReportStatus.Reviewing,
+                Domain.Enums.FaultReportStatus.Assigned,
+                Domain.Enums.FaultReportStatus.InProgress,
+                Domain.Enums.FaultReportStatus.Completed,
+                Domain.Enums.FaultReportStatus.Cancelled,
+                Domain.Enums.FaultReportStatus.FalseAlarm
+            };
+
+            var fromStatusGen = Gen.Elements(terminalStatuses);
+            var toStatusGen = Gen.Elements(allStatuses);
+
+            return Arb.From(
+                from fromStatus in fromStatusGen
+                from toStatus in toStatusGen
+                select new StatusTransition { FromStatus = fromStatus, ToStatus = toStatus });
+        }
+
+        /// <summary>
+        /// Represents a status transition for property-based testing.
+        /// </summary>
+        private class StatusTransition
+        {
+            public Domain.Enums.FaultReportStatus FromStatus { get; set; }
+            public Domain.Enums.FaultReportStatus ToStatus { get; set; }
+        }
+
+        #endregion
     }
 }
