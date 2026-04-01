@@ -122,7 +122,7 @@ namespace LotusCode.Infrastructure.Persistence.Seed
                     Id = Guid.NewGuid(),
                     Title = title,
                     Description = $"Seed data report description {i + 1}.",
-                    Location = $"Ankara/Çankaya/Mahalle-{i + 1}",
+                    Location = $"Bursa/Nilüfer/Mahalle-{i + 1}",
                     Priority = priorities[i % priorities.Length],
                     Status = statuses[i % statuses.Length],
                     CreatedByUserId = createdBy.Id,
