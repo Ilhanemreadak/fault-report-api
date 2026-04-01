@@ -1,4 +1,4 @@
-﻿using LotusCode.Application.Common;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.FaultReports;
 using LotusCode.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +28,10 @@ namespace LotusCode.Api.Controllers
         /// <summary>
         /// Gets a fault report by its identifier.
         /// </summary>
+        /// <remarks>
+        /// Admin users can access any report.
+        /// Regular users can only access reports they created.
+        /// </remarks>
         /// <param name="id">The fault report identifier.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The fault report detail.</returns>
@@ -41,20 +45,19 @@ namespace LotusCode.Api.Controllers
         {
             var result = await this.faultReportService.GetByIdAsync(id, cancellationToken);
 
-            return this.Ok(new ApiResponse<FaultReportDetailDto>
-            {
-                Success = true,
-                Data = result,
-                Message = "Fault report retrieved successfully.",
-                Errors = Array.Empty<string>()
-            });
+            return this.Ok(ApiResponse<FaultReportDetailDto>.SuccessResponse(result, "Fault report retrieved successfully."));
         }
 
         /// <summary>
         /// Gets a paginated list of fault reports with filtering and sorting.
         /// </summary>
+        /// <remarks>
+        /// Supports filtering by status, priority and location.
+        /// Supports sorting by <c>createdAt</c> or <c>priority</c> with <c>asc</c>/<c>desc</c> direction.
+        /// </remarks>
         [HttpGet]
         [ProducesResponseType(typeof(ApiResponse<PagedResult<FaultReportListItemDto>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<ApiResponse<PagedResult<FaultReportListItemDto>>>> GetList(
             [FromQuery] GetFaultReportsQuery query,
@@ -62,18 +65,16 @@ namespace LotusCode.Api.Controllers
         {
             var result = await this.faultReportService.GetListAsync(query, cancellationToken);
 
-            return this.Ok(new ApiResponse<PagedResult<FaultReportListItemDto>>
-            {
-                Success = true,
-                Data = result,
-                Message = "Fault reports retrieved successfully.",
-                Errors = Array.Empty<string>()
-            });
+            return this.Ok(ApiResponse<PagedResult<FaultReportListItemDto>>.SuccessResponse(result, "Fault reports retrieved successfully."));
         }
 
         /// <summary>
         /// Creates a new fault report.
         /// </summary>
+        /// <remarks>
+        /// Duplicate location rule is enforced:
+        /// same normalized location cannot be reported within one hour.
+        /// </remarks>
         /// <param name="request">The create request payload.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The identifier of the created fault report.</returns>
@@ -89,18 +90,16 @@ namespace LotusCode.Api.Controllers
 
             return this.StatusCode(
                 StatusCodes.Status201Created,
-                new ApiResponse<Guid>
-                {
-                    Success = true,
-                    Data = id,
-                    Message = "Fault report created successfully.",
-                    Errors = Array.Empty<string>()
-                });
+                ApiResponse<Guid>.SuccessResponse(id, "Fault report created successfully."));
         }
 
         /// <summary>
         /// Updates an existing fault report.
         /// </summary>
+        /// <remarks>
+        /// This endpoint does not allow status changes.
+        /// Use <c>PATCH /api/fault-reports/{id}/status</c> for status transitions.
+        /// </remarks>
         [HttpPut("{id:guid}")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
@@ -114,22 +113,21 @@ namespace LotusCode.Api.Controllers
         {
             await this.faultReportService.UpdateAsync(id, request, cancellationToken);
 
-            return this.Ok(new ApiResponse<object>
-            {
-                Success = true,
-                Data = null,
-                Message = "Fault report updated successfully.",
-                Errors = Array.Empty<string>()
-            });
+            return this.Ok(ApiResponse<object>.SuccessWithoutData("Fault report updated successfully."));
         }
 
         /// <summary>
         /// Changes the status of a fault report.
         /// Only admin users are allowed to perform this operation.
         /// </summary>
+        /// <remarks>
+        /// Status transitions are validated by centralized policy rules.
+        /// Invalid transitions return <c>422 Unprocessable Entity</c>.
+        /// </remarks>
         [HttpPatch("{id:guid}/status")]
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status422UnprocessableEntity)]
@@ -140,13 +138,30 @@ namespace LotusCode.Api.Controllers
         {
             await this.faultReportService.ChangeStatusAsync(id, request, cancellationToken);
 
-            return this.Ok(new ApiResponse<object>
-            {
-                Success = true,
-                Data = null,
-                Message = "Fault report status updated successfully.",
-                Errors = Array.Empty<string>()
-            });
+            return this.Ok(ApiResponse<object>.SuccessWithoutData("Fault report status updated successfully."));
+        }
+
+        /// <summary>
+        /// Deletes an existing fault report.
+        /// </summary>
+        /// <remarks>
+        /// Admin users can delete any report.
+        /// Regular users can only delete their own reports.
+        /// </remarks>
+        /// <param name="id">The fault report identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        [HttpDelete("{id:guid}")]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<ApiResponse<object>>> Delete(
+            Guid id,
+            CancellationToken cancellationToken)
+        {
+            await this.faultReportService.DeleteAsync(id, cancellationToken);
+
+            return this.Ok(ApiResponse<object>.SuccessWithoutData("Fault report deleted successfully."));
         }
     }
 }

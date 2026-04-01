@@ -1,4 +1,4 @@
-﻿using LotusCode.Application.Common;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.Auth;
 using LotusCode.Application.Interfaces;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +26,15 @@ namespace LotusCode.Api.Controllers
         /// <summary>
         /// Authenticates the user and returns a JWT token.
         /// </summary>
+        /// <remarks>
+        /// Sample request:
+        ///
+        ///     POST /api/auth/login
+        ///     {
+        ///       "email": "admin@lotus.local",
+        ///       "password": "Admin123!"
+        ///     }
+        /// </remarks>
         /// <param name="request">The login request.</param>
         /// <param name="cancellationToken">The cancellation token.</param>
         /// <returns>The authenticated user information and access token.</returns>
@@ -39,13 +48,7 @@ namespace LotusCode.Api.Controllers
         {
             var response = await this.authService.LoginAsync(request, cancellationToken);
 
-            return this.Ok(new ApiResponse<LoginResponse>
-            {
-                Success = true,
-                Data = response,
-                Message = "Login successful.",
-                Errors = Array.Empty<string>()
-            });
+            return this.Ok(ApiResponse<LoginResponse>.SuccessResponse(response, "Login successful."));
         }
     }
 }

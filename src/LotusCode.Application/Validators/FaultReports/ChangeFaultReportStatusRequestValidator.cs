@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+using FluentValidation;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.FaultReports;
 
 namespace LotusCode.Application.Validators.FaultReports
@@ -10,23 +11,12 @@ namespace LotusCode.Application.Validators.FaultReports
     public sealed class ChangeFaultReportStatusRequestValidator
         : AbstractValidator<ChangeFaultReportStatusRequest>
     {
-        private static readonly string[] AllowedStatuses =
-        [
-            "New",
-            "Reviewing",
-            "Assigned",
-            "InProgress",
-            "Completed",
-            "Cancelled",
-            "FalseAlarm"
-        ];
-
         public ChangeFaultReportStatusRequestValidator()
         {
             RuleFor(x => x.Status)
                 .NotEmpty()
                 .WithMessage("Status is required.")
-                .Must(status => AllowedStatuses.Contains(status))
+                .Must(FaultReportQueryParsing.IsValidStatus)
                 .WithMessage("Invalid status value.");
         }
     }

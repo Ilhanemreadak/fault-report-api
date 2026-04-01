@@ -1,4 +1,4 @@
-﻿namespace LotusCode.Application.DTOs.FaultReports
+namespace LotusCode.Application.DTOs.FaultReports
 {
     /// <summary>
     /// Represents request model for changing fault report status.
@@ -6,6 +6,9 @@
     /// </summary>
     public sealed class ChangeFaultReportStatusRequest
     {
+        /// <summary>
+        /// Target status value. Accepted values: New, Reviewing, Assigned, InProgress, Completed, Cancelled, FalseAlarm.
+        /// </summary>
         public string Status { get; init; } = string.Empty;
     }
 }

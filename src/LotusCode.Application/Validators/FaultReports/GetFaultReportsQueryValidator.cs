@@ -1,4 +1,5 @@
-﻿using FluentValidation;
+using FluentValidation;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.FaultReports;
 
 namespace LotusCode.Application.Validators.FaultReports
@@ -10,20 +11,6 @@ namespace LotusCode.Application.Validators.FaultReports
     public sealed class GetFaultReportsQueryValidator
         : AbstractValidator<GetFaultReportsQuery>
     {
-        private static readonly string[] AllowedSortBy = ["createdAt", "priority"];
-        private static readonly string[] AllowedSortDirection = ["asc", "desc"];
-        private static readonly string[] AllowedPriorities = ["Low", "Medium", "High"];
-        private static readonly string[] AllowedStatuses =
-        [
-            "New",
-            "Reviewing",
-            "Assigned",
-            "InProgress",
-            "Completed",
-            "Cancelled",
-            "FalseAlarm"
-        ];
-
         public GetFaultReportsQueryValidator()
         {
             RuleFor(x => x.Page)
@@ -37,19 +24,19 @@ namespace LotusCode.Application.Validators.FaultReports
                 .WithMessage("PageSize cannot exceed 100.");
 
             RuleFor(x => x.SortBy)
-                .Must(sort => AllowedSortBy.Contains(sort))
+                .Must(FaultReportQueryParsing.IsValidSortBy)
                 .WithMessage("SortBy must be 'createdAt' or 'priority'.");
 
             RuleFor(x => x.SortDirection)
-                .Must(direction => AllowedSortDirection.Contains(direction))
+                .Must(FaultReportQueryParsing.IsValidSortDirection)
                 .WithMessage("SortDirection must be 'asc' or 'desc'.");
 
             RuleFor(x => x.Priority)
-                .Must(p => AllowedPriorities.Contains(p, StringComparer.OrdinalIgnoreCase))
+                .Must(FaultReportQueryParsing.IsValidPriority)
                 .WithMessage("Invalid priority value.");
 
             RuleFor(x => x.Status)
-                .Must(s => s == null || AllowedStatuses.Contains(s))
+                .Must(FaultReportQueryParsing.IsValidStatus)
                 .WithMessage("Invalid status value.");
         }
     }

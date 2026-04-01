@@ -1,10 +1,12 @@
 using FluentValidation.AspNetCore;
 using LotusCode.Api.Middleware;
+using LotusCode.Application.Common;
 using LotusCode.Application.DependencyInjection;
 using LotusCode.Infrastructure.Auth;
 using LotusCode.Infrastructure.DependencyInjection;
 using LotusCode.Infrastructure.Persistence.Seed;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -22,6 +24,27 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(x => x.Value?.Errors.Count > 0)
+            .SelectMany(x => x.Value!.Errors)
+            .Select(x => string.IsNullOrWhiteSpace(x.ErrorMessage)
+                ? "Validation error."
+                : x.ErrorMessage)
+            .Distinct()
+            .ToArray();
+
+        var response = ApiResponse<object>.FailureResponse(
+            "Validation failed.",
+            errors);
+
+        return new BadRequestObjectResult(response);
+    };
+});
 
 builder.Services
     .AddFluentValidationAutoValidation()
@@ -115,6 +138,16 @@ builder.Services.AddRateLimiter(options =>
     });
 
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+
+        var response = ApiResponse<object>.FailureResponse(
+            "Too many requests.",
+            ["Rate limit exceeded. Maximum 10 requests per minute for same IP."]);
+
+        await context.HttpContext.Response.WriteAsJsonAsync(response, cancellationToken);
+    };
 });
 
 var app = builder.Build();

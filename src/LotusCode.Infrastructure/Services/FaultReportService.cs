@@ -1,4 +1,4 @@
-﻿using LotusCode.Application.Common;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.FaultReports;
 using LotusCode.Application.Exceptions;
 using LotusCode.Application.Interfaces;
@@ -44,15 +44,18 @@ namespace LotusCode.Infrastructure.Services
             CancellationToken cancellationToken)
         {
             var now = DateTime.UtcNow;
+            var duplicateThreshold = now.AddHours(-1);
 
-            var normalizedLocation = request.Location.Trim().ToLowerInvariant();
+            var normalizedLocation = FaultReportLocationNormalizer.Normalize(request.Location);
 
-            var exists = await this.dbContext.FaultReports
+            var recentLocations = await this.dbContext.FaultReports
                 .AsNoTracking()
-                .AnyAsync(x =>
-                    x.Location.ToLower() == normalizedLocation &&
-                    x.CreatedAtUtc >= now.AddHours(-1),
-                    cancellationToken);
+                .Where(x => x.CreatedAtUtc >= duplicateThreshold)
+                .Select(x => x.Location)
+                .ToListAsync(cancellationToken);
+
+            var exists = recentLocations.Any(x =>
+                FaultReportLocationNormalizer.Normalize(x) == normalizedLocation);
 
             if (exists)
             {
@@ -60,7 +63,7 @@ namespace LotusCode.Infrastructure.Services
                     "A fault report for the same location has already been created within the last hour.");
             }
 
-            if (!Enum.TryParse<PriorityLevel>(request.Priority, ignoreCase: true, out var priority)) // Validatorlarde doğruluğu kontrol edilmesine rağmen burada da kontrol edelim.
+            if (!FaultReportQueryParsing.TryParsePriority(request.Priority, out var priority))
             {
                 throw new BusinessRuleException("Invalid priority value.");
             }
@@ -68,9 +71,9 @@ namespace LotusCode.Infrastructure.Services
             var entity = new FaultReport
             {
                 Id = Guid.NewGuid(),
-                Title = request.Title,
-                Description = request.Description,
-                Location = request.Location,
+                Title = request.Title.Trim(),
+                Description = request.Description.Trim(),
+                Location = request.Location.Trim(),
                 Priority = priority,
                 Status = FaultReportStatus.New,
                 CreatedByUserId = this.currentUserService.UserId,
@@ -131,8 +134,7 @@ namespace LotusCode.Infrastructure.Services
             CancellationToken cancellationToken)
         {
             IQueryable<FaultReport> faultReportsQuery = this.dbContext.FaultReports
-                .AsNoTracking()
-                .Include(x => x.CreatedByUser);
+                .AsNoTracking();
 
             if (!IsAdmin())
             {
@@ -142,7 +144,7 @@ namespace LotusCode.Infrastructure.Services
 
             if (!string.IsNullOrWhiteSpace(query.Status))
             {
-                if (!Enum.TryParse<FaultReportStatus>(query.Status, true, out var status))
+                if (!FaultReportQueryParsing.TryParseStatus(query.Status, out var status))
                 {
                     throw new BusinessRuleException("Invalid status filter value.");
                 }
@@ -152,7 +154,7 @@ namespace LotusCode.Infrastructure.Services
 
             if (!string.IsNullOrWhiteSpace(query.Priority))
             {
-                if (!Enum.TryParse<PriorityLevel>(query.Priority, true, out var priority))
+                if (!FaultReportQueryParsing.TryParsePriority(query.Priority, out var priority))
                 {
                     throw new BusinessRuleException("Invalid priority filter value.");
                 }
@@ -162,10 +164,10 @@ namespace LotusCode.Infrastructure.Services
 
             if (!string.IsNullOrWhiteSpace(query.Location))
             {
-                var normalizedLocation = NormalizeLocation(query.Location);
+                var normalizedLocation = FaultReportLocationNormalizer.Normalize(query.Location);
 
                 faultReportsQuery = faultReportsQuery.Where(
-                    x => x.Location.ToLower().Contains(normalizedLocation));
+                    x => x.Location.Trim().ToLower().Contains(normalizedLocation));
             }
 
             faultReportsQuery = ApplySorting(faultReportsQuery, query);
@@ -220,21 +222,23 @@ namespace LotusCode.Infrastructure.Services
 
             EnsureCanAccess(entity);
 
-            if (!Enum.TryParse<PriorityLevel>(request.Priority, true, out var priority))
+            if (!FaultReportQueryParsing.TryParsePriority(request.Priority, out var priority))
             {
                 throw new BusinessRuleException("Invalid priority value.");
             }
 
-            var normalizedNewLocation = NormalizeLocation(request.Location);
+            var normalizedNewLocation = FaultReportLocationNormalizer.Normalize(request.Location);
             var now = DateTime.UtcNow;
+            var duplicateThreshold = now.AddHours(-1);
 
-            var exists = await this.dbContext.FaultReports
+            var recentLocations = await this.dbContext.FaultReports
                 .AsNoTracking()
-                .AnyAsync(
-                    x => x.Id != id &&
-                         x.Location.ToLower() == normalizedNewLocation &&
-                         x.CreatedAtUtc >= now.AddHours(-1),
-                    cancellationToken);
+                .Where(x => x.Id != id && x.CreatedAtUtc >= duplicateThreshold)
+                .Select(x => x.Location)
+                .ToListAsync(cancellationToken);
+
+            var exists = recentLocations.Any(x =>
+                FaultReportLocationNormalizer.Normalize(x) == normalizedNewLocation);
 
             if (exists)
             {
@@ -276,7 +280,7 @@ namespace LotusCode.Infrastructure.Services
                 throw new ForbiddenException("Only admin users can change fault report status.");
             }
 
-            if (!Enum.TryParse<FaultReportStatus>(request.Status, true, out var targetStatus))
+            if (!FaultReportQueryParsing.TryParseStatus(request.Status, out var targetStatus))
             {
                 throw new StatusTransitionException("Invalid target status value.");
             }
@@ -302,6 +306,28 @@ namespace LotusCode.Infrastructure.Services
 
             entity.Status = targetStatus;
             entity.UpdatedAtUtc = DateTime.UtcNow;
+
+            await this.dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// Deletes a fault report while enforcing ownership rules.
+        /// </summary>
+        /// <param name="id">The fault report identifier.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+        {
+            var entity = await this.dbContext.FaultReports
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+
+            if (entity is null)
+            {
+                throw new NotFoundException($"Fault report with id '{id}' was not found.");
+            }
+
+            EnsureCanAccess(entity);
+
+            this.dbContext.FaultReports.Remove(entity);
 
             await this.dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -338,17 +364,12 @@ namespace LotusCode.Infrastructure.Services
             throw new ForbiddenException("Current user role is invalid.");
         }
 
-        private static string NormalizeLocation(string value)
-        {
-            return value.Trim().ToLowerInvariant();
-        }
-
         private static IQueryable<FaultReport> ApplySorting(
             IQueryable<FaultReport> query,
             GetFaultReportsQuery request)
         {
-            var sortBy = request.SortBy?.Trim().ToLowerInvariant() ?? "createdat";
-            var sortDirection = request.SortDirection?.Trim().ToLowerInvariant() ?? "desc";
+            var sortBy = FaultReportQueryParsing.NormalizeSortBy(request.SortBy);
+            var sortDirection = FaultReportQueryParsing.NormalizeSortDirection(request.SortDirection);
 
             return (sortBy, sortDirection) switch
             {

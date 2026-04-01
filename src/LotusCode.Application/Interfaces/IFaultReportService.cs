@@ -1,4 +1,4 @@
-﻿using LotusCode.Application.Common;
+using LotusCode.Application.Common;
 using LotusCode.Application.DTOs.FaultReports;
 
 namespace LotusCode.Application.Interfaces
@@ -30,6 +30,10 @@ namespace LotusCode.Application.Interfaces
         Task ChangeStatusAsync(
             Guid id,
             ChangeFaultReportStatusRequest request,
+            CancellationToken cancellationToken);
+
+        Task DeleteAsync(
+            Guid id,
             CancellationToken cancellationToken);
     }
 }

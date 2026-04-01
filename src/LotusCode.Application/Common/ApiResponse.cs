@@ -1,4 +1,4 @@
-﻿namespace LotusCode.Application.Common
+namespace LotusCode.Application.Common
 {
     /// <summary>
     /// Standardized API response wrapper used across all endpoints.
@@ -20,6 +20,13 @@
             {
                 Success = true,
                 Data = data,
+                Message = message
+            };
+
+        public static ApiResponse<T> SuccessWithoutData(string message = "")
+            => new()
+            {
+                Success = true,
                 Message = message
             };
 
