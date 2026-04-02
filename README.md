@@ -381,3 +381,19 @@ Test odakları:
 4. Admin rolüyle status geçişlerini yönet
 
 ---
+
+---
+
+## 📄 Lisans (License)
+
+Bu proje **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International** lisansı ile lisanslanmıştır.
+
+| İzin Verilenler | Yasak Olanlar | Şartlar |
+| :--- | :--- | :--- |
+|  Kopyalama ve Paylaşma |  **Ticari Kullanım (Para Kazanma)** |  Yazara Atıf Yapılmalı |
+|  Kodda Değişiklik Yapma |  Lisans Değiştirme |  Aynı Lisansla Paylaşma |
+
+> [!IMPORTANT]
+> Bu projenin herhangi bir parçası veya tamamı, önceden yazılı izin alınmaksızın ticari bir üründe, hizmette veya ücretli bir eğitimde kullanılamaz.
+
+Ticari lisans talepleri veya iş birliği için: [LinkedIn](https://www.linkedin.com/in/ilhan-emre-adak/) | [E-posta](adak.ie@hotmail.com)
