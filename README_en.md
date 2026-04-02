@@ -1,4 +1,4 @@
-# LotusCode Assignment - Fault Report Management API
+# Fault Report Management API
 
 This project is a **.NET 8 Web API** developed for an electricity distribution company scenario. The main goal is to manage fault reports in a secure, rule-driven, and maintainable way.
 
