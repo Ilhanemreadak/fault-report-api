@@ -384,7 +384,7 @@ Test odakları:
 
 ---
 
-## 📄 Lisans (License)
+## Lisans (License)
 
 Bu proje **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International** lisansı ile lisanslanmıştır.
 
@@ -396,4 +396,4 @@ Bu proje **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 Internation
 > [!IMPORTANT]
 > Bu projenin herhangi bir parçası veya tamamı, önceden yazılı izin alınmaksızın ticari bir üründe, hizmette veya ücretli bir eğitimde kullanılamaz.
 
-Ticari lisans talepleri veya iş birliği için: [LinkedIn](https://www.linkedin.com/in/ilhan-emre-adak/) | [E-posta](adak.ie@hotmail.com)
+Ticari lisans talepleri veya iş birliği için: [LinkedIn](https://www.linkedin.com/in/ilhan-emre-adak/) | [E-posta](mailto:adak.ie@hotmail.com)
