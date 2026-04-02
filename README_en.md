@@ -383,3 +383,17 @@ Test focus areas:
 4. Manage status transitions with `Admin` role
 
 ---
+
+## License:
+
+This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International licence.
+
+| Permitted Uses | Prohibited Uses | Terms |
+| :--- | :--- | :--- |
+| Copying and Sharing | Commercial Use (Making Money) | Attribution to the Author |
+| Modifying the Code | Licence Change | Sharing with the Same Licence |
+
+> [!IMPORTANT]
+> None of this project's parts or the whole project may be used in a commercial product, service or paid education without prior written permission.
+
+For commercial licence requests or collaboration: [LinkedIn](https://www.linkedin.com/in/ilhan-emre-adak/) | [Email](mailto:adak.ie@hotmail.com)
